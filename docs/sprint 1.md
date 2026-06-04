@@ -299,7 +299,7 @@ Ausführen:
 
 ```bash
 cd src/cli
-uv run python main.py
+uv run python assistant
 ```
 
 **Warum `uv run` statt direkt `python`?**
@@ -619,6 +619,81 @@ if __name__ == "__main__":
     main()
 ```
 
+### 4.2.1 Fehlerbehebung beim Ausführen von chat.py
+
+Beim Testen sind folgende Fehler aufgetaucht — und so löst du sie:
+
+**Fehler 1: `ImportError: attempted relative import with no known parent package`**
+
+```
+uv run src/cli/chat.py
+ImportError: attempted relative import with no known parent package
+```
+
+Ursache: `uv run datei.py` führt die Datei als eigenständiges Skript aus.
+Relative Imports (`from .config import ...`) funktionieren nur innerhalb eines Packages.
+
+Fix: Füge einen `[build-system]` und `[project.scripts]`-Eintrag in `pyproject.toml` hinzu:
+
+```toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cli"]
+
+[project.scripts]
+assistant = "cli.main:first_api_call"
+chat = "cli.chat:main"
+```
+
+Dann einmalig synchronisieren und danach mit dem Script-Namen starten:
+
+```bash
+uv sync
+uv run chat
+```
+
+---
+
+**Fehler 2: `ImportError: cannot import name 'COST_PER_MILLION_INPUT'`**
+
+Ursache: `config.py` enthält die Kostenkonstanten nicht.
+
+Fix: Füge am Ende von `src/cli/config.py` hinzu:
+
+```python
+COST_PER_MILLION_INPUT = 0.80   # Haiku 4.5 Input: $0.80/MTok
+COST_PER_MILLION_OUTPUT = 4.00  # Haiku 4.5 Output: $4.00/MTok
+```
+
+---
+
+**Fehler 3: `AttributeError: 'ChatSession' object has no attribute 'total_input_tokens'`**
+
+Ursache: In `__init__` wurden die Attribute als `total_input` / `total_output` angelegt,
+aber in `send()` und `get_cost()` als `total_input_tokens` / `total_output_tokens` verwendet.
+
+Fix: In `__init__` umbenennen:
+
+```python
+self.total_input_tokens = 0   # nicht total_input
+self.total_output_tokens = 0  # nicht total_output
+```
+
+---
+
+**Fehler 4: `TypeError: cannot unpack non-sequence dict`**
+
+Ursache: `for i, msg in session.messages:` — Dictionaries kann man nicht so entpacken.
+
+Fix:
+
+```python
+for i, msg in enumerate(session.messages):
+```
+
 ### 4.3 Teste und beobachte den Kontext
 
 Führe das Programm aus und teste diese Sequenz:
@@ -676,7 +751,7 @@ Zeigt den Unterschied zwischen verschiedenen Prompting-Techniken.
 """
 
 from anthropic import Anthropic
-from config import ANTHROPIC_API_KEY, MODEL_NAME, MAX_TOKENS
+from .config import ANTHROPIC_API_KEY, MODEL_NAME, MAX_TOKENS
 
 
 client = Anthropic(api_key=ANTHROPIC_API_KEY)
@@ -789,7 +864,7 @@ def experiment_strukturierte_ausgabe():
     vergleiche_prompts(techniken, "Docker")
 
 
-if __name__ == "__main__":
+def main():
     print("\n" + "=" * 60)
     print("EXPERIMENT 1: Zero-Shot vs. Few-Shot Klassifizierung")
     print("=" * 60)
@@ -804,7 +879,34 @@ if __name__ == "__main__":
     print("EXPERIMENT 3: Strukturierte Ausgabe (JSON)")
     print("=" * 60)
     experiment_strukturierte_ausgabe()
+
+
+if __name__ == "__main__":
+    main()
 ```
+
+Füge in `pyproject.toml` unter `[project.scripts]` einen weiteren Eintrag hinzu:
+
+```toml
+[project.scripts]
+assistant = "cli.main:first_api_call"
+chat      = "cli.chat:main"
+prompts   = "cli.prompt_experiments:main"
+```
+
+Dann einmalig synchronisieren und ausführen:
+
+```bash
+uv sync
+uv run prompts
+```
+
+### 5.1.1 Fehlerbehebung
+
+**Fehler: `ImportError: attempted relative import with no known parent package`**
+
+Gleiche Ursache wie bei `chat.py` — direkt als Skript ausgeführt statt als Package.
+Lösung: `pyproject.toml` um den `prompts`-Eintrag ergänzen (siehe oben) und mit `uv run prompts` starten.
 
 ### 5.2 Was du beobachten und dokumentieren sollst
 
@@ -1057,10 +1159,9 @@ Für unser Projekt: JSON.
 
 ```bash
 # Alle Tests durchführen (manuell erstmal)
-cd src/cli
-uv run python main.py          # Erster API-Call
-uv run python chat.py          # Interaktiver Chat
-uv run python prompt_experiments.py  # Prompt-Techniken
+uv run assistant   # Erster API-Call
+uv run chat        # Interaktiver Chat
+uv run prompts     # Prompt-Techniken
 
 # Prüfe ob alle Dateien sauber sind:
 # - Keine API-Keys im Code?
