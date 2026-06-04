@@ -7,42 +7,48 @@
 
 ## Tag 1: Umgebung aufsetzen (2h)
 
-### 1.1 Python installieren und prüfen
+### 1.1 uv installieren
 
-Öffne dein Terminal (in VS Code: `Ctrl+Ö` oder `Ctrl+Backtick`) und prüfe:
+uv ist ein moderner Python-Paketmanager, der pip, venv und pyenv ersetzt —
+in einem einzigen Tool, 10–100x schneller. Öffne dein Terminal
+(in VS Code: `Ctrl+Ö` oder `Ctrl+Backtick`):
 
 ```bash
-python --version
-# Erwartet: Python 3.11.x oder höher
-# Falls nicht installiert: https://www.python.org/downloads/
+# uv installieren
+# Windows (PowerShell):
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# Mac/Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Prüfen ob es funktioniert:
+uv --version
 ```
 
-**Warum Python 3.11+?** Neuere Versionen sind schneller und haben bessere
-Fehlermeldungen. Die meisten AI-Libraries (LangChain, FastAPI) setzen 3.10+ voraus.
+**Warum uv statt pip/venv?**
+pip + venv + pyenv sind drei separate Tools, die man einzeln verwalten muss.
+uv macht alles in einem: Python-Version verwalten, virtuelle Umgebung
+automatisch erstellen, Packages blitzschnell installieren. Es ist der
+neue Standard in der Python-Welt und spart dir von Anfang an Ärger.
 
-### 1.2 Projekt-Ordner vorbereiten
+### 1.2 Projekt mit uv initialisieren
 
 ```bash
 # In dein geklontes Repo wechseln
 cd Personal-AI-Assistant
 
-# Virtuelle Umgebung erstellen
-python -m venv venv
+# Projekt initialisieren — uv erstellt pyproject.toml und .venv automatisch
+uv init --python 3.12
 
-# Aktivieren:
-# Windows:
-venv\Scripts\activate
-# Mac/Linux:
-source venv/bin/activate
-
-# Dein Terminal sollte jetzt (venv) am Anfang zeigen
+# Python wird automatisch heruntergeladen falls nötig!
+# Du brauchst Python NICHT vorher manuell installieren.
 ```
 
-**Was ist eine virtuelle Umgebung und warum?**
-Jedes Python-Projekt hat eigene Abhängigkeiten (Libraries). Ohne venv
-installierst du alles global — das führt zu Versions-Konflikten.
-Eine venv isoliert dein Projekt. Jedes Mal, wenn du an diesem Projekt
-arbeitest, aktivierst du zuerst die venv.
+**Was passiert bei `uv init`?**
+uv erstellt eine `pyproject.toml` (die moderne Alternative zu `requirements.txt`),
+lädt automatisch die richtige Python-Version herunter, und erstellt eine
+virtuelle Umgebung im `.venv`-Ordner. Du musst die venv nie manuell
+aktivieren — `uv run` erledigt das automatisch.
 
 ### 1.3 VS Code konfigurieren
 
@@ -52,10 +58,10 @@ Installiere diese VS Code Extensions (links in der Seitenleiste → Extensions):
 - **Pylance** (Microsoft) — Autocomplete, Type Checking
 - **GitLens** — Git-Verlauf direkt im Code sehen
 - **Thunder Client** — API-Testing (brauchst du ab Sprint 2)
-- **Python Environment Manager** — venv leicht wechseln
 
 Dann in VS Code: `Ctrl+Shift+P` → "Python: Select Interpreter" → wähle
-die venv (`./venv/bin/python` oder `./venv/Scripts/python.exe`).
+die venv (`./.venv/bin/python` oder `./.venv/Scripts/python.exe`).
+uv legt die venv immer als `.venv` im Projektroot an.
 
 ### 1.4 Erste Dateien und Ordnerstruktur anlegen
 
@@ -73,8 +79,10 @@ touch src/cli/main.py
 touch src/cli/config.py
 touch .env
 touch .env.example
-touch requirements.txt
 ```
+
+**Hinweis:** `pyproject.toml` und `uv.lock` hat `uv init` bereits erstellt.
+Du brauchst keine `requirements.txt`.
 
 ### 1.5 .gitignore einrichten
 
@@ -82,7 +90,7 @@ Erstelle eine `.gitignore` Datei im Projektroot:
 
 ```gitignore
 # Python
-venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -180,20 +188,16 @@ ANTHROPIC_API_KEY=sk-ant-api03-HIER-DEINEN-KEY-EINTRAGEN
 
 ### 2.3 Dependencies installieren
 
-Trage in `requirements.txt` ein:
-
-```
-anthropic>=0.40.0
-python-dotenv>=1.0.0
-```
-
-Dann installieren:
-
 ```bash
-pip install -r requirements.txt
+uv add anthropic python-dotenv
 ```
 
-**Was sind diese Packages?**
+**Was passiert hier?**
+`uv add` installiert die Packages UND trägt sie automatisch in `pyproject.toml` ein.
+Du brauchst keine `requirements.txt` mehr — `pyproject.toml` ist der moderne Standard.
+uv erstellt außerdem eine `uv.lock` Datei, die exakte Versionen festhält
+(committen! So kann jeder dein Projekt mit identischen Versionen nutzen).
+
 - `anthropic` — Die offizielle Python-Library von Anthropic für die Claude API
 - `python-dotenv` — Liest `.env` Dateien und macht die Werte als
   Umgebungsvariablen verfügbar, damit du Keys nicht im Code stehen hast
@@ -295,8 +299,13 @@ Ausführen:
 
 ```bash
 cd src/cli
-python main.py
+uv run python main.py
 ```
+
+**Warum `uv run` statt direkt `python`?**
+`uv run` aktiviert automatisch die richtige venv und stellt sicher,
+dass alle Dependencies verfügbar sind. Du musst nie manuell
+`source .venv/bin/activate` tippen.
 
 **Was passiert hier genau?**
 
@@ -1049,9 +1058,9 @@ Für unser Projekt: JSON.
 ```bash
 # Alle Tests durchführen (manuell erstmal)
 cd src/cli
-python main.py          # Erster API-Call
-python chat.py          # Interaktiver Chat
-python prompt_experiments.py  # Prompt-Techniken
+uv run python main.py          # Erster API-Call
+uv run python chat.py          # Interaktiver Chat
+uv run python prompt_experiments.py  # Prompt-Techniken
 
 # Prüfe ob alle Dateien sauber sind:
 # - Keine API-Keys im Code?

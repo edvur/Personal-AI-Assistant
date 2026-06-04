@@ -1,0 +1,28 @@
+```gitignore
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Umgebungsvariablen (NIEMALS committen!)
+.env
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Daten
+data/
+*.db
+```
